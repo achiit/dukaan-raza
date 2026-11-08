@@ -1,0 +1,90 @@
+import React, { useState, useEffect } from 'react';
+import { AuthProvider } from './context/AuthContext';
+import { Navbar } from './components/Navbar';
+import { HeroSection } from './components/HeroSection';
+import { AboutSection } from './components/AboutSection';
+import { ServicesSection } from './components/ServicesSection';
+import { TransformationSection } from './components/TransformationSection';
+import { PortfolioShowcase } from './components/PortfolioShowcase';
+import { DesignToolsSection } from './components/DesignToolsSection';
+import { WhyWorkWithMe } from './components/WhyWorkWithMe';
+import { ContactSection } from './components/ContactSection';
+import { Footer } from './components/Footer';
+import { ProjectInquiryModal } from './components/ProjectInquiryModal';
+import { ProjectDetailModal } from './components/ProjectDetailModal';
+import { UserDashboardModal } from './components/UserDashboardModal';
+import { DEFAULT_STUDIO_CONFIG } from './data/portfolioData';
+import { StudioConfig, Project } from './types';
+import { db, testConnection } from './lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+
+function MainStudioApp() {
+  const [config, setConfig] = useState<StudioConfig>(DEFAULT_STUDIO_CONFIG);
+  const [inquiryModalOpen, setInquiryModalOpen] = useState(false);
+  const [selectedServiceForInquiry, setSelectedServiceForInquiry] = useState<string | undefined>(undefined);
+  const [dashboardModalOpen, setDashboardModalOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+
+  useEffect(() => {
+    testConnection();
+    const fetchConfig = async () => {
+      try {
+        const configDoc = await getDoc(doc(db, 'settings', 'studio'));
+        if (configDoc.exists()) setConfig(configDoc.data() as StudioConfig);
+      } catch (err) {
+        console.warn('Using default studio configuration');
+      }
+    };
+    fetchConfig();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-[#06080d] text-[#f3f4f6] selection:bg-[#ff5500] selection:text-white flex flex-col font-sans">
+      <Navbar
+        onOpenDashboard={() => setDashboardModalOpen(true)}
+        onOpenInquiry={() => { setSelectedServiceForInquiry(undefined); setInquiryModalOpen(true); }}
+      />
+      <main className="flex-1">
+        <HeroSection
+          onOpenInquiry={() => { setSelectedServiceForInquiry(undefined); setInquiryModalOpen(true); }}
+          onExploreWork={() => document.getElementById('work')?.scrollIntoView({ behavior: 'smooth' })}
+        />
+        <PortfolioShowcase onSelectProject={(p) => setSelectedProject(p)} />
+        <ServicesSection onSelectService={(srv) => { setSelectedServiceForInquiry(srv); setInquiryModalOpen(true); }} />
+        <TransformationSection />
+        <DesignToolsSection />
+        <WhyWorkWithMe config={config} />
+        <AboutSection onOpenInquiry={() => { setSelectedServiceForInquiry(undefined); setInquiryModalOpen(true); }} />
+        <ContactSection config={config} onOpenInquiry={() => { setSelectedServiceForInquiry(undefined); setInquiryModalOpen(true); }} />
+      </main>
+      <Footer config={config} />
+
+      <ProjectInquiryModal
+        isOpen={inquiryModalOpen}
+        onClose={() => setInquiryModalOpen(false)}
+        defaultService={selectedServiceForInquiry}
+        whatsappLink={config.whatsappLink}
+      />
+      <ProjectDetailModal
+        project={selectedProject}
+        onClose={() => setSelectedProject(null)}
+        onInquireSimilar={(srv) => { setSelectedServiceForInquiry(srv); setInquiryModalOpen(true); }}
+      />
+      <UserDashboardModal
+        isOpen={dashboardModalOpen}
+        onClose={() => setDashboardModalOpen(false)}
+        config={config}
+        onUpdateConfig={(newConf) => setConfig(newConf)}
+        onSelectProject={(p) => setSelectedProject(p)}
+      />
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <MainStudioApp />
+    </AuthProvider>
+  );
+}
